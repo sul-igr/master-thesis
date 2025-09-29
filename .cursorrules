@@ -1,0 +1,44 @@
+# Cursor Rules for Vue/TypeScript Project
+
+## Code Style
+
+- Use TypeScript for all new files
+- Prefer composition API over options API in Vue components
+- Use `<script setup>` syntax for Vue components
+- Always put `<template>` first, ahead of `<script>`
+- Follow existing code style and patterns in the project
+- Use meaningful variable and function names
+
+## Vue Specific
+
+- Use `ref()` and `reactive()` for state management
+- Prefer `computed()` over methods when possible
+- Use `defineProps()` and `defineEmits()` for component props/events
+- Keep components focused and single-purpose
+
+## TypeScript
+
+- Use strict type checking
+- Define interfaces for complex objects
+- Use type assertions sparingly
+- Prefer `interface` over `type` for object shapes
+
+## File Organization
+
+- Keep components in `/src/components/`
+- Keep views in `/src/views/`
+- Use kebab-case for component file names
+- Group related functionality together
+
+## Performance
+
+- Use `v-memo` for expensive list rendering
+- Lazy load components when appropriate
+- Avoid unnecessary re-renders
+
+## General
+
+- Write self-documenting code
+- Add comments for complex logic
+- Keep functions small and focused
+- Use modern JavaScript/TypeScript features
