@@ -1,13 +1,15 @@
-import { useAccount, useConnect, useDisconnect } from '@wagmi/vue'
+import router from '@/router'
+import { useAccount, useDisconnect } from '@wagmi/vue'
+import { useAppKit } from '@reown/appkit/vue'
 
 export const useWallet = () => {
-  const { address, isConnected } = useAccount()
-  const { connect, connectors, isPending } = useConnect()
+  const { address, isConnected, isConnecting } = useAccount()
   const { disconnect } = useDisconnect()
+  const { open } = useAppKit()
 
   const connectWallet = async () => {
     try {
-      await connect({ connector: connectors[0] })
+      open()
     } catch (error) {
       console.error('Failed to connect wallet:', error)
     }
@@ -15,12 +17,13 @@ export const useWallet = () => {
 
   const disconnectWallet = () => {
     disconnect()
+    router.push({ name: 'home' })
   }
 
   return {
     isConnected,
+    isConnecting,
     address,
-    isConnecting: isPending,
     connectWallet,
     disconnectWallet,
   }

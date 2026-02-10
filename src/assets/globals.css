@@ -6,4 +6,54 @@
   --color-text-primary: #fff;
   --color-text-secondary: #9ca3af;
   --color-bg-secondary: #1919e6;
+
+  /* Subscription Card Variables */
+  --color-bg-card: #1a1a2e;
+  --color-bg-header: #0f3460;
+  --color-bg-content: #16213e;
+  --color-bg-primary-hover: #2563eb;
+  --color-bg-success: #10b981;
+  --color-bg-muted: #374151;
+  --color-text-success: #fff;
+  --color-text-muted: #9ca3af;
+  --color-border: #2d2d44;
+
+  /* Spacing Variables */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+
+  /* Border Radius Variables */
+  --border-radius-md: 8px;
+  --border-radius-lg: 12px;
+  --border-radius-full: 9999px;
+
+  /* Typography Variables */
+  --font-size-sm: 14px;
+  --font-size-base: 16px;
+  --font-size-lg: 18px;
+  --font-weight-medium: 500;
+  --font-weight-bold: 700;
+  --line-height-relaxed: 1.625;
+
+  /* Shadow Variables */
+  --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+
+  /* Transition Variables */
+  --transition-colors: background-color 0.2s ease;
+}
+
+.app-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.main-content {
+  flex: 1;
+  padding: 2rem 0;
 }

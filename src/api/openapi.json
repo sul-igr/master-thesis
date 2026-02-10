@@ -1,0 +1,377 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Subscription API",
+    "version": "1.0.0",
+    "description": "API for managing subscription plans and recurring payments"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3001",
+      "description": "Development server"
+    }
+  ],
+  "paths": {
+    "/delegations": {
+      "post": {
+        "summary": "Create a delegation for a signer address",
+        "tags": ["Delegations"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["signerAddress", "signedAuthorization"],
+                "properties": {
+                  "signerAddress": {
+                    "type": "string",
+                    "pattern": "^0x[a-fA-F0-9]{40}$",
+                    "description": "The signer address to delegate",
+                    "example": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb"
+                  },
+                  "signedAuthorization": {
+                    "type": "string",
+                    "pattern": "^0x[a-fA-F0-9]+$",
+                    "description": "Signed authorization for the delegation",
+                    "example": "0x1234..."
+                  },
+                  "executor": {
+                    "type": "string",
+                    "pattern": "^0x[a-fA-F0-9]{40}$",
+                    "description": "Optional executor address (defaults to EXECUTOR_ADDR env var)",
+                    "example": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb"
+                  },
+                  "publicExecution": {
+                    "type": "boolean",
+                    "description": "Whether execution is public (defaults to false)",
+                    "example": false
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Delegation created or already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": ["already_delegated", "submitted"]
+                    },
+                    "signerAddress": {
+                      "type": "string"
+                    },
+                    "delegatedTo": {
+                      "type": "string",
+                      "description": "Present when status is already_delegated"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Present when status is already_delegated"
+                    },
+                    "txHash": {
+                      "type": "string",
+                      "description": "Present when status is submitted"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request body"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      },
+      "get": {
+        "summary": "Health check for delegations endpoint",
+        "tags": ["Delegations"],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/plans": {
+      "get": {
+        "summary": "Get all active plans",
+        "tags": ["Plans"],
+        "responses": {
+          "200": {
+            "description": "List of plans"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a new plan",
+        "tags": ["Plans"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "slug",
+                  "receiver",
+                  "chainId",
+                  "token",
+                  "tokenSymbol",
+                  "tokenDecimals",
+                  "price",
+                  "intervalSeconds",
+                  "name"
+                ],
+                "properties": {
+                  "slug": {
+                    "type": "string"
+                  },
+                  "creator": {
+                    "type": "string"
+                  },
+                  "receiver": {
+                    "type": "string"
+                  },
+                  "chainId": {
+                    "type": "number"
+                  },
+                  "token": {
+                    "type": "string"
+                  },
+                  "tokenSymbol": {
+                    "type": "string"
+                  },
+                  "tokenDecimals": {
+                    "type": "number"
+                  },
+                  "price": {
+                    "type": "string"
+                  },
+                  "intervalSeconds": {
+                    "type": "number"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "imageUrl": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Plan created successfully"
+          },
+          "400": {
+            "description": "Invalid request body"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/api/plans/{id}": {
+      "get": {
+        "summary": "Get plan by ID (UUID)",
+        "tags": ["Plans"],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Plan found"
+          },
+          "404": {
+            "description": "Plan not found"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      },
+      "put": {
+        "summary": "Update a plan",
+        "tags": ["Plans"],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Plan updated successfully"
+          },
+          "400": {
+            "description": "Invalid request body"
+          },
+          "404": {
+            "description": "Plan not found"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete a plan",
+        "tags": ["Plans"],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Plan deleted successfully"
+          },
+          "404": {
+            "description": "Plan not found"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/api/subscriptions": {
+      "post": {
+        "summary": "Create a new subscription",
+        "tags": ["Subscriptions"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["userId", "planId"],
+                "properties": {
+                  "userId": {
+                    "type": "string",
+                    "description": "Wallet address (0x...)"
+                  },
+                  "planId": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Subscription created successfully"
+          },
+          "400": {
+            "description": "Invalid request body"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/api/subscriptions/user/{userId}": {
+      "get": {
+        "summary": "Get subscriptions for a user",
+        "tags": ["Subscriptions"],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "userId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of subscriptions"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/api/subscriptions/{id}/cancel": {
+      "post": {
+        "summary": "Cancel a subscription",
+        "tags": ["Subscriptions"],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Subscription cancelled successfully"
+          },
+          "404": {
+            "description": "Subscription not found"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    }
+  },
+  "components": {},
+  "tags": []
+}
