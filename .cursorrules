@@ -42,3 +42,4 @@
 - Add comments for complex logic
 - Keep functions small and focused
 - Use modern JavaScript/TypeScript features
+- use bun instead of npm
