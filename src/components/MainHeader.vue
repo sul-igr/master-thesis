@@ -14,6 +14,10 @@
           <LogOut :size="16" />
         </button>
       </div>
+
+      <div v-else-if="isConnected" class="nav-right">
+        <appkit-button size="sm" />
+      </div>
     </div>
   </header>
 </template>
