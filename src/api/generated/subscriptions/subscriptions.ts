@@ -148,20 +148,87 @@ export const getPostApiSubscriptionsIdCancelUrl = (id: number,) => {
 }
 
 export const postApiSubscriptionsIdCancel = async (id: number, options?: RequestInit): Promise<postApiSubscriptionsIdCancelResponse> => {
-  
+
   const res = await fetch(getPostApiSubscriptionsIdCancelUrl(id),
-  {      
+  {
     ...options,
     method: 'POST'
-    
-    
+
+
   }
 )
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-  
+
   const data: postApiSubscriptionsIdCancelResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as postApiSubscriptionsIdCancelResponse
 }
 
 
+/**
+ * Relay create subscription (gasless — user signs EIP-712, relayer submits tx)
+ */
+export interface RelayCreateBody {
+  userId: string
+  planId: string
+  token: string
+  receiver: string
+  amount: string
+  interval: string
+  startTime: string
+  endTime: string
+  maxExecutions: string
+  nonce: string
+  signature: string
+}
+
+export interface RelayCreateResponse {
+  subscription: any
+  txHash: string
+}
+
+export const getPostApiSubscriptionsRelayCreateUrl = () => {
+  return `http://localhost:3001/api/subscriptions/relay-create`
+}
+
+export const postApiSubscriptionsRelayCreate = async (body: RelayCreateBody, options?: RequestInit): Promise<{ data: RelayCreateResponse; status: number; headers: Headers }> => {
+  const res = await fetch(getPostApiSubscriptionsRelayCreateUrl(), {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(body),
+  })
+
+  const text = [204, 205, 304].includes(res.status) ? null : await res.text();
+  const data = text ? JSON.parse(text) : {}
+  return { data, status: res.status, headers: res.headers }
+}
+
+
+/**
+ * Relay cancel subscription (gasless — user signs EIP-712, relayer submits tx)
+ */
+export interface RelayCancelBody {
+  userId: string
+  backendSubId: number
+  onChainSubId: string
+  nonce: string
+  signature: string
+}
+
+export const getPostApiSubscriptionsRelayCancelUrl = () => {
+  return `http://localhost:3001/api/subscriptions/relay-cancel`
+}
+
+export const postApiSubscriptionsRelayCancel = async (body: RelayCancelBody, options?: RequestInit): Promise<{ data: { success: boolean; txHash: string }; status: number; headers: Headers }> => {
+  const res = await fetch(getPostApiSubscriptionsRelayCancelUrl(), {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(body),
+  })
+
+  const text = [204, 205, 304].includes(res.status) ? null : await res.text();
+  const data = text ? JSON.parse(text) : {}
+  return { data, status: res.status, headers: res.headers }
+}

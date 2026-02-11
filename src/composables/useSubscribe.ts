@@ -1,8 +1,7 @@
-import { encodeFunctionData } from 'viem'
 import { ref } from 'vue'
-import { getPublicClient, readContract } from '@wagmi/core'
-import { useAccount, useConfig, useSendTransaction } from '@wagmi/vue'
-import { postApiSubscriptions } from '@/api/generated/subscriptions/subscriptions'
+import { readContract } from '@wagmi/core'
+import { useAccount, useConfig, useSignTypedData } from '@wagmi/vue'
+import { postApiSubscriptionsRelayCreate } from '@/api/generated/subscriptions/subscriptions'
 import { SUBSCRIPTION_DELEGATE_ABI } from '@/abis/subscriptionDelegate'
 import { checkIsDelegated } from '@/composables/useEip7702'
 import type { Plan } from '@/api/types'
@@ -10,7 +9,7 @@ import type { Plan } from '@/api/types'
 export function useSubscribe() {
   const config = useConfig()
   const { address, chainId } = useAccount()
-  const { sendTransactionAsync } = useSendTransaction()
+  const { signTypedDataAsync } = useSignTypedData()
   const loading = ref(false)
   const error = ref<string | null>(null)
 
@@ -36,12 +35,6 @@ export function useSubscribe() {
     const endTime = 0n
     const maxExecutions = 0
 
-    const data = encodeFunctionData({
-      abi: SUBSCRIPTION_DELEGATE_ABI,
-      functionName: 'createSubscription',
-      args: [token, receiver, amount, interval, startTime, endTime, maxExecutions],
-    })
-
     const cid = chainId.value
     if (!cid) {
       return { success: false, error: 'Wallet chain not set. Connect and try again.' }
@@ -57,37 +50,66 @@ export function useSubscribe() {
     loading.value = true
     error.value = null
     try {
-      const hash = await sendTransactionAsync({
-        to: userId,
-        data,
-        value: 0n,
-      })
-      if (!hash) {
-        return { success: false, error: 'Transaction failed' }
-      }
-      const publicClient = getPublicClient(config, { chainId: cid })
-      if (publicClient) {
-        await publicClient.waitForTransactionReceipt({ hash })
-      }
-
-      // Read the on-chain subscription count to get the ID of the just-created subscription
-      const subCount = await readContract(config, {
+      // Read the current signature nonce from the user's delegated EOA
+      const nonce = await readContract(config, {
         address: userId,
         abi: SUBSCRIPTION_DELEGATE_ABI,
-        functionName: 'subscriptionCount',
+        functionName: 'signatureNonce',
       })
-      const onChainSubscriptionId = Number(subCount)
 
-      const res = await postApiSubscriptions({
+      // Sign EIP-712 typed data (no gas required)
+      const signature = await signTypedDataAsync({
+        domain: {
+          name: 'SubscriptionDelegate',
+          version: '1',
+          chainId: cid,
+          verifyingContract: userId,
+        },
+        types: {
+          CreateSubscription: [
+            { name: 'token', type: 'address' },
+            { name: 'receiver', type: 'address' },
+            { name: 'amount', type: 'uint256' },
+            { name: 'interval', type: 'uint64' },
+            { name: 'startTime', type: 'uint64' },
+            { name: 'endTime', type: 'uint64' },
+            { name: 'maxExecutions', type: 'uint32' },
+            { name: 'nonce', type: 'uint256' },
+          ],
+        },
+        primaryType: 'CreateSubscription',
+        message: {
+          token,
+          receiver,
+          amount,
+          interval,
+          startTime,
+          endTime,
+          maxExecutions,
+          nonce,
+        },
+      })
+
+      // Post to backend relay endpoint — relayer pays gas
+      const res = await postApiSubscriptionsRelayCreate({
         userId,
         planId: plan.id,
-        onChainSubscriptionId,
-      } as any)
+        token,
+        receiver,
+        amount: amount.toString(),
+        interval: interval.toString(),
+        startTime: startTime.toString(),
+        endTime: endTime.toString(),
+        maxExecutions: String(maxExecutions),
+        nonce: nonce.toString(),
+        signature,
+      })
+
       if (res.status >= 200 && res.status < 300) {
         return { success: true }
       }
-      const body = res.data as { message?: string } | undefined
-      const msg = body?.message ?? `Backend failed with status ${res.status}`
+      const body = res.data as any
+      const msg = body?.error ?? `Backend failed with status ${res.status}`
       return { success: false, error: msg }
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Subscribe failed'

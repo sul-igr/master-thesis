@@ -1,14 +1,13 @@
-import { encodeFunctionData } from 'viem'
 import { ref } from 'vue'
-import { getPublicClient } from '@wagmi/core'
-import { useAccount, useConfig, useSendTransaction } from '@wagmi/vue'
-import { postApiSubscriptionsIdCancel } from '@/api/generated/subscriptions/subscriptions'
+import { readContract } from '@wagmi/core'
+import { useAccount, useConfig, useSignTypedData } from '@wagmi/vue'
+import { postApiSubscriptionsRelayCancel } from '@/api/generated/subscriptions/subscriptions'
 import { SUBSCRIPTION_DELEGATE_ABI } from '@/abis/subscriptionDelegate'
 
 export function useUnsubscribe() {
   const config = useConfig()
   const { address, chainId } = useAccount()
-  const { sendTransactionAsync } = useSendTransaction()
+  const { signTypedDataAsync } = useSignTypedData()
   const loading = ref(false)
   const error = ref<string | null>(null)
 
@@ -21,34 +20,57 @@ export function useUnsubscribe() {
       return { success: false, error: 'Wallet not connected' }
     }
 
-    const data = encodeFunctionData({
-      abi: SUBSCRIPTION_DELEGATE_ABI,
-      functionName: 'cancelSubscription',
-      args: [BigInt(onChainSubId)],
-    })
+    const cid = chainId.value
+    if (!cid) {
+      return { success: false, error: 'Wallet chain not set. Connect and try again.' }
+    }
 
     loading.value = true
     error.value = null
     try {
-      const hash = await sendTransactionAsync({
-        to: userId,
-        data,
-        value: 0n,
+      // Read the current signature nonce from the user's delegated EOA
+      const nonce = await readContract(config, {
+        address: userId,
+        abi: SUBSCRIPTION_DELEGATE_ABI,
+        functionName: 'signatureNonce',
       })
-      if (!hash) {
-        return { success: false, error: 'Transaction failed' }
-      }
 
-      const cid = chainId.value
-      if (cid) {
-        const publicClient = getPublicClient(config, { chainId: cid })
-        if (publicClient) {
-          await publicClient.waitForTransactionReceipt({ hash })
-        }
-      }
+      // Sign EIP-712 typed data (no gas required)
+      const signature = await signTypedDataAsync({
+        domain: {
+          name: 'SubscriptionDelegate',
+          version: '1',
+          chainId: cid,
+          verifyingContract: userId,
+        },
+        types: {
+          CancelSubscription: [
+            { name: 'subscriptionId', type: 'uint256' },
+            { name: 'nonce', type: 'uint256' },
+          ],
+        },
+        primaryType: 'CancelSubscription',
+        message: {
+          subscriptionId: BigInt(onChainSubId),
+          nonce,
+        },
+      })
 
-      await postApiSubscriptionsIdCancel(backendSubId)
-      return { success: true }
+      // Post to backend relay endpoint — relayer pays gas
+      const res = await postApiSubscriptionsRelayCancel({
+        userId,
+        backendSubId,
+        onChainSubId: String(onChainSubId),
+        nonce: nonce.toString(),
+        signature,
+      })
+
+      if (res.status >= 200 && res.status < 300) {
+        return { success: true }
+      }
+      const body = res.data as any
+      const msg = body?.error ?? `Backend failed with status ${res.status}`
+      return { success: false, error: msg }
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Unsubscribe failed'
       error.value = msg
