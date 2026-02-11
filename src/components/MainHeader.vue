@@ -6,7 +6,7 @@
       <nav v-if="showAppNav" class="nav-center">
         <RouterLink to="/">Dashboard</RouterLink>
         <RouterLink to="/my-subscriptions">My Subscriptions</RouterLink>
-        <RouterLink to="/create-plan">Create Plan</RouterLink>
+        <RouterLink v-if="isAdmin" to="/create-plan">Create Plan</RouterLink>
       </nav>
 
       <div v-if="showAppNav" class="nav-right">
@@ -27,9 +27,11 @@ import { computed, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { useWallet } from '@/composables/useWallet'
 import { useEIP7702 } from '@/composables/useEip7702'
+import { useAdmin } from '@/composables/useAdmin'
 import { LogOut } from 'lucide-vue-next'
 
 const { isConnected, disconnectWallet } = useWallet()
+const { isAdmin } = useAdmin()
 const { isDelegated } = useEIP7702()
 const route = useRoute()
 const delegated = ref(false)

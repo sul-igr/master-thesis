@@ -17,6 +17,15 @@
         <textarea id="description" v-model="formData.description" rows="3" placeholder="What does this plan include?" />
       </div>
 
+      <div class="form-group">
+        <label for="chainId">Chain</label>
+        <select id="chainId" v-model.number="formData.chainId" required>
+          <option v-for="chain in supportedChains" :key="chain.id" :value="chain.id">
+            {{ chain.name }}
+          </option>
+        </select>
+      </div>
+
       <div class="form-row">
         <div class="form-group">
           <label for="token">Token Address</label>
@@ -82,6 +91,14 @@ import BaseButton from '@/components/BaseButton.vue'
 const router = useRouter()
 const { address, chainId } = useAccount()
 
+const supportedChains = [
+  { id: 31337, name: 'Anvil (localhost)' },
+  { id: 11155111, name: 'Sepolia' },
+  { id: 17000, name: 'Holesky' },
+]
+
+const defaultChainId = supportedChains.find((c) => c.id === chainId.value)?.id ?? 31337
+
 const isSubmitting = ref(false)
 const intervalAmount = ref(1)
 const intervalUnit = ref(2592000)
@@ -90,7 +107,7 @@ const formData = ref<PostApiPlansBody>({
   slug: '',
   creator: address.value ?? '',
   receiver: '',
-  chainId: chainId.value ?? 31337,
+  chainId: defaultChainId,
   token: '',
   tokenSymbol: '',
   tokenDecimals: 6,
@@ -106,7 +123,6 @@ const handleSubmit = async () => {
 
   // Ensure creator is always set from connected wallet
   formData.value.creator = address.value ?? ''
-  formData.value.chainId = chainId.value ?? formData.value.chainId
   formData.value.intervalSeconds = intervalAmount.value * intervalUnit.value
 
   isSubmitting.value = true
@@ -174,7 +190,8 @@ const handleSubmit = async () => {
 }
 
 .form-group input,
-.form-group textarea {
+.form-group textarea,
+.form-group select {
   padding: 0.625rem 0.75rem;
   border: 1px solid var(--color-border, #2d2d44);
   border-radius: 8px;
@@ -189,8 +206,13 @@ const handleSubmit = async () => {
   color: rgba(255, 255, 255, 0.25);
 }
 
+.form-group select {
+  cursor: pointer;
+}
+
 .form-group input:focus,
-.form-group textarea:focus {
+.form-group textarea:focus,
+.form-group select:focus {
   outline: none;
   border-color: var(--color-bg-secondary, #1919e6);
 }

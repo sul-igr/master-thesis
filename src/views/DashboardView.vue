@@ -10,9 +10,8 @@
         v-for="plan in plans"
         :key="plan.id"
         :plan="plan"
-        :showEdit="isOwnPlan(plan)"
-        :showDelete="isOwnPlan(plan)"
-        @subscribe="handleSubscribe(plan)"
+        :showEdit="isAdmin && isOwnPlan(plan)"
+        :showDelete="isAdmin && isOwnPlan(plan)"
         @edit="handleEdit(plan)"
         @delete="handleDelete(plan)"
       />
@@ -26,10 +25,12 @@ import { useRouter } from 'vue-router'
 import SubscriptionCard from '@/components/SubscriptionCard.vue'
 import { getApiPlans, deleteApiPlansId } from '@/api/generated/plans/plans'
 import type { Plan } from '@/api/types'
-import { useSubscribe } from '@/composables/useSubscribe'
+import { useAdmin } from '@/composables/useAdmin'
+import { useWallet } from '@/composables/useWallet'
 
 const router = useRouter()
-const { subscribe, address } = useSubscribe()
+const { address } = useWallet()
+const { isAdmin } = useAdmin()
 
 const plans = ref<Plan[]>([])
 const loading = ref(true)
@@ -48,13 +49,6 @@ onMounted(async () => {
 
 function isOwnPlan(plan: Plan): boolean {
   return !!address.value && plan.creator?.toLowerCase() === address.value.toLowerCase()
-}
-
-async function handleSubscribe(plan: Plan) {
-  const { success, error } = await subscribe(plan)
-  if (!success) {
-    console.error('Subscribe failed:', error)
-  }
 }
 
 function handleEdit(plan: Plan) {

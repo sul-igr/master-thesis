@@ -8,6 +8,7 @@ import PlanView from '@/views/PlanView.vue'
 import DelegateView from '@/views/DelegateView.vue'
 import MySubscriptionsView from '@/views/MySubscriptionsView.vue'
 import { checkIsDelegated } from '@/composables/useEip7702'
+import { checkIsAdmin } from '@/api/admin'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -46,6 +47,7 @@ const router = createRouter({
 })
 
 const protectedRoutes = ['create-plan', 'edit-plan', 'plan', 'my-subscriptions']
+const adminRoutes = ['create-plan', 'edit-plan']
 
 router.beforeEach(async (to, from, next) => {
   const account = getAccount(config)
@@ -59,6 +61,13 @@ router.beforeEach(async (to, from, next) => {
     if (!delegated) {
       next({ name: 'delegate' })
       return
+    }
+    if (adminRoutes.includes(to.name as string)) {
+      const admin = await checkIsAdmin(account.address)
+      if (!admin) {
+        next({ name: 'home' })
+        return
+      }
     }
   }
 

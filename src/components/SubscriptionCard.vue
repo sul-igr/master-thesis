@@ -11,6 +11,24 @@
     <div class="card-content">
       <div class="content-header">
         <h3 class="title">{{ plan.name }}</h3>
+        <div v-if="showEdit || showDelete" class="admin-actions">
+          <button
+            v-if="showEdit"
+            class="icon-action edit-action"
+            @click.stop.prevent="$emit('edit')"
+            title="Edit plan"
+          >
+            <Pencil :size="14" />
+          </button>
+          <button
+            v-if="showDelete"
+            class="icon-action delete-action"
+            @click.stop.prevent="$emit('delete')"
+            title="Delete plan"
+          >
+            <Trash2 :size="14" />
+          </button>
+        </div>
       </div>
 
       <p v-if="plan.description" class="description">{{ plan.description }}</p>
@@ -18,31 +36,12 @@
       <div class="price">{{ displayPrice }} <span class="token-symbol">{{ plan.tokenSymbol ?? '' }}</span></div>
 
       <div class="interval">every {{ formatInterval(plan.intervalSeconds) }}</div>
-
-      <BaseButton @click.stop="$emit('subscribe')">Subscribe</BaseButton>
-      <button
-        v-if="showEdit"
-        class="edit-button"
-        @click.stop.prevent="$emit('edit')"
-        title="Edit plan"
-      >
-        <Pencil :size="16" /> Edit
-      </button>
-      <button
-        v-if="showDelete"
-        class="delete-button"
-        @click.stop.prevent="$emit('delete')"
-        title="Delete plan"
-      >
-        <Trash2 :size="16" /> Delete
-      </button>
     </div>
   </component>
 </template>
 
 <script setup lang="ts">
 import { RouterLink } from 'vue-router'
-import BaseButton from './BaseButton.vue'
 import { Pencil, Trash2 } from 'lucide-vue-next'
 import { computed } from 'vue'
 import type { Plan } from '@/api/types'
@@ -58,7 +57,6 @@ const props = defineProps<{
 }>()
 
 defineEmits<{
-  subscribe: []
   delete: []
   edit: []
 }>()
@@ -78,7 +76,8 @@ const displayPrice = computed(() => formatPrice(props.plan.price, props.plan.tok
   box-shadow: var(--shadow-card, 0 4px 6px -1px rgba(0, 0, 0, 0.1));
   text-decoration: none;
   color: inherit;
-  display: block;
+  display: flex;
+  flex-direction: column;
   transition: border-color 0.2s;
 }
 
@@ -106,10 +105,52 @@ const displayPrice = computed(() => formatPrice(props.plan.price, props.plan.tok
 .card-content {
   background: var(--color-bg-content, #16213e);
   padding: var(--spacing-lg, 24px);
+  flex: 1;
 }
 
 .content-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   margin-bottom: var(--spacing-sm, 8px);
+}
+
+.admin-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.icon-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.edit-action {
+  color: var(--color-text-secondary, #9ca3af);
+}
+
+.edit-action:hover {
+  background-color: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+}
+
+.delete-action {
+  color: var(--color-text-secondary, #9ca3af);
+}
+
+.delete-action:hover {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
 }
 
 .title {
@@ -145,45 +186,4 @@ const displayPrice = computed(() => formatPrice(props.plan.price, props.plan.tok
   margin-bottom: var(--spacing-lg, 24px);
 }
 
-.edit-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  margin-top: 8px;
-  padding: 8px;
-  border: 1px solid rgba(59, 130, 246, 0.5);
-  border-radius: 6px;
-  background: transparent;
-  color: #3b82f6;
-  cursor: pointer;
-  width: 100%;
-  font-size: 0.875rem;
-  transition: background-color 0.2s;
-}
-
-.edit-button:hover {
-  background-color: rgba(59, 130, 246, 0.15);
-}
-
-.delete-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  margin-top: 8px;
-  padding: 8px;
-  border: 1px solid rgba(239, 68, 68, 0.5);
-  border-radius: 6px;
-  background: transparent;
-  color: #ef4444;
-  cursor: pointer;
-  width: 100%;
-  font-size: 0.875rem;
-  transition: background-color 0.2s;
-}
-
-.delete-button:hover {
-  background-color: rgba(239, 68, 68, 0.15);
-}
 </style>
