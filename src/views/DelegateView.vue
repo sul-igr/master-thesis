@@ -44,7 +44,7 @@ import { useAccount } from '@wagmi/vue'
 import BaseButton from '@/components/BaseButton.vue'
 import { useEIP7702 } from '@/composables/useEip7702'
 import { getPostDelegationsUrl } from '@/api/generated/delegations/delegations'
-import { ACCOUNT_IMPLEMENTATION_ADDRESS } from '@/constants'
+import { ACCOUNT_IMPLEMENTATION_ADDRESS, getRpcUrl } from '@/constants'
 import { useWallet } from '@/composables/useWallet'
 
 const router = useRouter()
@@ -60,17 +60,10 @@ const apiBase = computed(() => {
   return url.replace(/\/delegations\/?$/, '')
 })
 
-const rpcUrlByChainId: Record<number, string> = {
-  1: 'https://eth.merkle.io',
-  11155111: 'https://rpc.sepolia.org',
-  31337: 'http://127.0.0.1:8545',
-  1337: 'http://127.0.0.1:8545',
-}
-
 const delegationCommand = computed(() => {
   const signer = address.value ?? '<YOUR_ADDRESS>'
   const cid = chainId.value ?? 1
-  const rpc = rpcUrlByChainId[cid] ?? 'https://eth.merkle.io'
+  const rpc = getRpcUrl(cid)
   return `cast wallet sign-auth -i --rpc-url ${rpc} ${ACCOUNT_IMPLEMENTATION_ADDRESS} | \\
   xargs -S 4096 -I{} curl -s -X POST ${apiBase.value}/delegations \\
   -H "Content-Type: application/json" \\
