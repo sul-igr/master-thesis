@@ -13,7 +13,8 @@ const metadata = {
   icons: ['https://avatars.githubusercontent.com/u/179229932'],
 }
 
-const networks: [AppKitNetwork, ...AppKitNetwork[]] = [anvil, sepolia, holesky, mainnet]
+// Anvil last so wagmi’s default (first) chain isn’t localhost — avoids Network tab showing 127.0.0.1 when chainId isn’t passed
+const networks: [AppKitNetwork, ...AppKitNetwork[]] = [holesky, sepolia, mainnet, anvil]
 
 // Single WagmiAdapter — source of truth for both AppKit and WagmiPlugin
 export const wagmiAdapter = new WagmiAdapter({
