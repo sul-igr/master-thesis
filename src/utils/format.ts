@@ -4,7 +4,7 @@
  *      formatPrice("1500000", 6) → "1.5"
  *      formatPrice("1000000000000000000", 18) → "1"
  */
-export function formatPrice(baseUnits: string, decimals = 18): string {
+export const formatPrice = (baseUnits: string, decimals = 18): string => {
   if (!baseUnits || baseUnits === '0') return '0'
   const str = baseUnits.padStart(decimals + 1, '0')
   const whole = str.slice(0, str.length - decimals) || '0'
@@ -13,7 +13,7 @@ export function formatPrice(baseUnits: string, decimals = 18): string {
 }
 
 /** Format seconds into a human-readable interval string. */
-export function formatInterval(seconds?: number): string {
+export const formatInterval = (seconds?: number): string => {
   if (!seconds) return '—'
   if (seconds >= 86400) {
     const days = Math.round(seconds / 86400)

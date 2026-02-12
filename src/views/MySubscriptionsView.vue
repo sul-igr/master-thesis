@@ -14,11 +14,8 @@
       >
         <div class="sub-header">
           <h3>{{ sub.plan?.name ?? 'Unknown plan' }}</h3>
-          <span
-            class="status-badge"
-            :class="sub.onChainActive ? 'active' : 'cancelled'"
-          >
-            {{ sub.onChainActive ? 'Active' : 'Cancelled' }}
+          <span class="status-badge" :class="statusBadgeClass(sub)">
+            {{ statusBadgeLabel(sub) }}
           </span>
         </div>
 
@@ -37,23 +34,33 @@
           </div>
         </div>
 
-        <button
-          v-if="sub.onChainActive && sub.onChainSubscriptionId != null"
-          class="unsubscribe-btn"
-          :disabled="unsubLoading"
-          @click="handleUnsubscribe(sub)"
-        >
-          {{ unsubLoading ? 'Cancelling...' : 'Unsubscribe' }}
-        </button>
+        <div class="sub-actions">
+          <button
+            v-if="sub.isOverdue"
+            class="retry-btn"
+            :disabled="retryingIds.has(sub.id)"
+            @click="handleRetry(sub)"
+          >
+            {{ retryingIds.has(sub.id) ? 'Retrying...' : 'Retry payment' }}
+          </button>
+          <button
+            v-if="sub.onChainActive && sub.onChainSubscriptionId != null"
+            class="unsubscribe-btn"
+            :disabled="unsubLoading"
+            @click="handleUnsubscribe(sub)"
+          >
+            {{ unsubLoading ? 'Cancelling...' : 'Unsubscribe' }}
+          </button>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { useAccount, useConfig } from '@wagmi/vue'
-import { getApiSubscriptionsUserUserId } from '@/api/generated/subscriptions/subscriptions'
+import { getApiSubscriptionsUserUserId, postApiSubscriptionsIdRetry } from '@/api/generated/subscriptions/subscriptions'
 import { getSubscriptionOnChain } from '@/composables/useSubscriptionOnChain'
 import { useUnsubscribe } from '@/composables/useUnsubscribe'
 import { formatPrice } from '@/utils/format'
@@ -63,6 +70,7 @@ interface EnrichedSubscription extends Subscription {
   onChainActive: boolean
   nextExecutionTime: number | null
   executionCount: number | null
+  isOverdue: boolean
 }
 
 const config = useConfig()
@@ -70,19 +78,63 @@ const { address, chainId } = useAccount()
 const { unsubscribe, loading: unsubLoading } = useUnsubscribe()
 
 const loading = ref(true)
+const retryingIds = reactive(new Set<number>())
 const error = ref<string | null>(null)
 const subscriptions = ref<EnrichedSubscription[]>([])
 
-function displayPrice(sub: EnrichedSubscription): string {
+// --- Helpers ---
+
+const displayPrice = (sub: EnrichedSubscription): string => {
   if (!sub.plan?.price) return '—'
   return formatPrice(sub.plan.price, sub.plan.tokenDecimals ?? 18)
 }
 
-function formatDate(timestamp: number): string {
-  return new Date(timestamp * 1000).toLocaleString()
+const formatDate = (timestamp: number): string =>
+  new Date(timestamp * 1000).toLocaleString()
+
+const statusBadgeClass = (sub: EnrichedSubscription): string => {
+  if (sub.isOverdue) return 'overdue'
+  return sub.onChainActive ? 'active' : 'cancelled'
 }
 
-async function loadSubscriptions() {
+const statusBadgeLabel = (sub: EnrichedSubscription): string => {
+  if (sub.isOverdue) return 'Payment overdue'
+  return sub.onChainActive ? 'Active' : 'Cancelled'
+}
+
+const enrichSubscription = async (
+  sub: Subscription,
+  userId: `0x${string}`,
+  cid: number | undefined,
+): Promise<EnrichedSubscription> => {
+  let onChainActive = sub.status === 'active' && !sub.cancelled
+  let nextExecutionTime: number | null = null
+  let executionCount: number | null = null
+
+  if (sub.onChainSubscriptionId != null && cid) {
+    const onChain = await getSubscriptionOnChain(
+      config,
+      userId,
+      cid,
+      BigInt(sub.onChainSubscriptionId),
+    )
+    if (onChain) {
+      onChainActive = onChain.active
+      nextExecutionTime = Number(onChain.nextExecutionTime)
+      executionCount = onChain.executionCount
+    }
+  }
+
+  const isOverdue = onChainActive
+    && nextExecutionTime != null
+    && nextExecutionTime <= Date.now() / 1000
+
+  return { ...sub, onChainActive, nextExecutionTime, executionCount, isOverdue }
+}
+
+// --- Data loading ---
+
+const loadSubscriptions = async () => {
   const userId = address.value
   if (!userId) {
     error.value = 'Wallet not connected'
@@ -100,36 +152,9 @@ async function loadSubscriptions() {
     }
 
     const cid = chainId.value
-    const enriched: EnrichedSubscription[] = []
-
-    for (const sub of data) {
-      let onChainActive = sub.status === 'active' && !sub.cancelled
-      let nextExecutionTime: number | null = null
-      let executionCount: number | null = null
-
-      if (sub.onChainSubscriptionId != null && cid) {
-        const onChain = await getSubscriptionOnChain(
-          config,
-          userId as `0x${string}`,
-          cid,
-          BigInt(sub.onChainSubscriptionId),
-        )
-        if (onChain) {
-          onChainActive = onChain.active
-          nextExecutionTime = Number(onChain.nextExecutionTime)
-          executionCount = onChain.executionCount
-        }
-      }
-
-      enriched.push({
-        ...sub,
-        onChainActive,
-        nextExecutionTime,
-        executionCount,
-      })
-    }
-
-    subscriptions.value = enriched
+    subscriptions.value = await Promise.all(
+      data.map((sub) => enrichSubscription(sub, userId as `0x${string}`, cid)),
+    )
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Failed to load subscriptions'
   } finally {
@@ -137,13 +162,31 @@ async function loadSubscriptions() {
   }
 }
 
-async function handleUnsubscribe(sub: EnrichedSubscription) {
+// --- Actions ---
+
+const handleUnsubscribe = async (sub: EnrichedSubscription) => {
   if (sub.onChainSubscriptionId == null) return
   const { success, error: err } = await unsubscribe(sub.onChainSubscriptionId, sub.id)
   if (success) {
     sub.onChainActive = false
   } else {
     console.error('Unsubscribe failed:', err)
+  }
+}
+
+const handleRetry = async (sub: EnrichedSubscription) => {
+  retryingIds.add(sub.id)
+  try {
+    const res = await postApiSubscriptionsIdRetry(sub.id)
+    if (res.status >= 200 && res.status < 300) {
+      await loadSubscriptions()
+    } else {
+      console.error('Retry failed:', res.data)
+    }
+  } catch (e) {
+    console.error('Retry failed:', e)
+  } finally {
+    retryingIds.delete(sub.id)
   }
 }
 
@@ -213,6 +256,11 @@ h1 {
   color: #ef4444;
 }
 
+.status-badge.overdue {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+}
+
 .sub-details {
   display: flex;
   flex-direction: column;
@@ -229,6 +277,34 @@ h1 {
 
 .label {
   color: var(--color-text-secondary, #9ca3af);
+}
+
+.sub-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.retry-btn {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid rgba(245, 158, 11, 0.5);
+  border-radius: 8px;
+  background: transparent;
+  color: #f59e0b;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.retry-btn:hover:not(:disabled) {
+  background-color: rgba(245, 158, 11, 0.15);
+}
+
+.retry-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .unsubscribe-btn {

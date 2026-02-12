@@ -132,7 +132,7 @@ const handleSubmit = async () => {
     if (response.status >= 200 && response.status < 300) {
       router.push({ name: 'home' })
     } else {
-      const body = response.data as { error?: string } | undefined
+      const body = response.data as unknown as { error?: string } | undefined
       alert(body?.error ?? 'Failed to create plan. Please try again.')
     }
   } catch (error) {

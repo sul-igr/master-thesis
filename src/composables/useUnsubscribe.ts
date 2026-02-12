@@ -3,18 +3,19 @@ import { readContract } from '@wagmi/core'
 import { useAccount, useConfig, useSignTypedData } from '@wagmi/vue'
 import { postApiSubscriptionsRelayCancel } from '@/api/generated/subscriptions/subscriptions'
 import { SUBSCRIPTION_DELEGATE_ABI } from '@/abis/subscriptionDelegate'
+import type { ApiErrorBody } from '@/api/types'
 
-export function useUnsubscribe() {
+export const useUnsubscribe = () => {
   const config = useConfig()
   const { address, chainId } = useAccount()
   const { signTypedDataAsync } = useSignTypedData()
   const loading = ref(false)
   const error = ref<string | null>(null)
 
-  async function unsubscribe(
+  const unsubscribe = async (
     onChainSubId: number,
     backendSubId: number,
-  ): Promise<{ success: boolean; error?: string }> {
+  ): Promise<{ success: boolean; error?: string }> => {
     const userId = address.value
     if (!userId) {
       return { success: false, error: 'Wallet not connected' }
@@ -68,7 +69,7 @@ export function useUnsubscribe() {
       if (res.status >= 200 && res.status < 300) {
         return { success: true }
       }
-      const body = res.data as any
+      const body = res.data as unknown as ApiErrorBody | undefined
       const msg = body?.error ?? `Backend failed with status ${res.status}`
       return { success: false, error: msg }
     } catch (e) {

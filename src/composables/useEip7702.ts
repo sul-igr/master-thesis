@@ -4,11 +4,11 @@ import { useAccount, useConfig } from '@wagmi/vue'
 import { ACCOUNT_IMPLEMENTATION_ADDRESS } from '@/constants'
 
 /** Call from router guard etc. – does not rely on Vue injection */
-export async function checkIsDelegated(
+export const checkIsDelegated = async (
   config: Config,
   address: `0x${string}`,
-  chainId: number
-): Promise<boolean> {
+  chainId: number,
+): Promise<boolean> => {
   const publicClient = getPublicClient(config, { chainId })
   if (!publicClient) return false
   const code = await publicClient.getCode({ address })

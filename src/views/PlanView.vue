@@ -114,11 +114,17 @@ const isCreator = computed(() => {
 
 const chainName = computed(() => {
   if (!plan.value) return ''
-  const map: Record<number, string> = { 1: 'Ethereum', 42161: 'Arbitrum', 31337: 'Local (Anvil)' }
+  const map: Record<number, string> = {
+    1: 'Ethereum',
+    42161: 'Arbitrum',
+    11155111: 'Sepolia',
+    17000: 'Holesky',
+    31337: 'Local (Anvil)',
+  }
   return map[plan.value.chainId ?? 0] ?? `Chain ${plan.value.chainId}`
 })
 
-onMounted(async () => {
+const loadPlan = async () => {
   try {
     const listRes = await getApiPlans()
     const list = (listRes.data as Plan[] | undefined) ?? []
@@ -130,7 +136,9 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
-})
+}
+
+onMounted(loadPlan)
 
 const subscribeButtonText = computed(() => {
   if (subscribing.value) return 'Subscribing...'
@@ -139,7 +147,7 @@ const subscribeButtonText = computed(() => {
 })
 const subscribeDisabled = computed(() => !plan.value || !address.value || subscribing.value)
 
-async function handleSubscribe() {
+const handleSubscribe = async () => {
   if (!address.value || !plan.value) return
   const { success, error } = await subscribe(plan.value)
   if (success) {

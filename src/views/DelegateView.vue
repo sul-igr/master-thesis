@@ -77,7 +77,7 @@ const delegationCommand = computed(() => {
   -d "{\\"signedAuthorization\\":\\"{}\\", \\"signerAddress\\":\\"${signer}\\"}"`
 })
 
-async function copyCommand() {
+const copyCommand = async () => {
   try {
     await navigator.clipboard.writeText(delegationCommand.value)
     copied.value = true
@@ -89,11 +89,10 @@ async function copyCommand() {
   }
 }
 
-async function recheckAndContinue() {
+const recheckAndContinue = async () => {
   checking.value = true
   try {
     const isDelegatedValue = await isDelegated()
-    console.log('isDelegated', isDelegatedValue)
     if (isDelegatedValue) {
       await router.replace({ name: 'home' })
     }

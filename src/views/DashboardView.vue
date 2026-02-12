@@ -35,27 +35,28 @@ const { isAdmin } = useAdmin()
 const plans = ref<Plan[]>([])
 const loading = ref(true)
 
-onMounted(async () => {
+const loadPlans = async () => {
   try {
     const plansRes = await getApiPlans()
     const data = plansRes.data as Plan[] | undefined
     plans.value = Array.isArray(data) ? data : []
-  } catch (error) {
-    console.error('Failed to load plans:', error)
+  } catch (e) {
+    console.error('Failed to load plans:', e)
   } finally {
     loading.value = false
   }
-})
-
-function isOwnPlan(plan: Plan): boolean {
-  return !!address.value && plan.creator?.toLowerCase() === address.value.toLowerCase()
 }
 
-function handleEdit(plan: Plan) {
+onMounted(loadPlans)
+
+const isOwnPlan = (plan: Plan): boolean =>
+  !!address.value && plan.creator?.toLowerCase() === address.value.toLowerCase()
+
+const handleEdit = (plan: Plan) => {
   router.push({ name: 'edit-plan', params: { id: plan.id } })
 }
 
-async function handleDelete(plan: Plan) {
+const handleDelete = async (plan: Plan) => {
   try {
     const res = await deleteApiPlansId(plan.id)
     if (res.status >= 200 && res.status < 300) {

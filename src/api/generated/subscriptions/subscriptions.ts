@@ -165,6 +165,8 @@ export const postApiSubscriptionsIdCancel = async (id: number, options?: Request
 }
 
 
+import { API_BASE_URL } from '@/constants'
+
 /**
  * Relay create subscription (gasless — user signs EIP-712, relayer submits tx)
  */
@@ -183,12 +185,12 @@ export interface RelayCreateBody {
 }
 
 export interface RelayCreateResponse {
-  subscription: any
+  subscription: import('../../types').Subscription
   txHash: string
 }
 
 export const getPostApiSubscriptionsRelayCreateUrl = () => {
-  return `http://localhost:3001/api/subscriptions/relay-create`
+  return `${API_BASE_URL}/api/subscriptions/relay-create`
 }
 
 export const postApiSubscriptionsRelayCreate = async (body: RelayCreateBody, options?: RequestInit): Promise<{ data: RelayCreateResponse; status: number; headers: Headers }> => {
@@ -197,6 +199,25 @@ export const postApiSubscriptionsRelayCreate = async (body: RelayCreateBody, opt
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...options?.headers },
     body: JSON.stringify(body),
+  })
+
+  const text = [204, 205, 304].includes(res.status) ? null : await res.text();
+  const data = text ? JSON.parse(text) : {}
+  return { data, status: res.status, headers: res.headers }
+}
+
+
+/**
+ * Retry a failed/past_due subscription (resets failedRetries, status → active)
+ */
+export const getPostApiSubscriptionsIdRetryUrl = (id: number) => {
+  return `${API_BASE_URL}/api/subscriptions/${id}/retry`
+}
+
+export const postApiSubscriptionsIdRetry = async (id: number, options?: RequestInit): Promise<{ data: import('../../types').Subscription; status: number; headers: Headers }> => {
+  const res = await fetch(getPostApiSubscriptionsIdRetryUrl(id), {
+    ...options,
+    method: 'POST',
   })
 
   const text = [204, 205, 304].includes(res.status) ? null : await res.text();
@@ -217,7 +238,7 @@ export interface RelayCancelBody {
 }
 
 export const getPostApiSubscriptionsRelayCancelUrl = () => {
-  return `http://localhost:3001/api/subscriptions/relay-cancel`
+  return `${API_BASE_URL}/api/subscriptions/relay-cancel`
 }
 
 export const postApiSubscriptionsRelayCancel = async (body: RelayCancelBody, options?: RequestInit): Promise<{ data: { success: boolean; txHash: string }; status: number; headers: Headers }> => {

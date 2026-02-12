@@ -89,7 +89,7 @@ const router = useRouter()
 const { address } = useAccount()
 
 const loading = ref(true)
-const error = ref('')
+const error = ref<string | null>(null)
 const isSubmitting = ref(false)
 const intervalAmount = ref(1)
 const intervalUnit = ref(2592000)
@@ -109,7 +109,7 @@ const formData = ref<PutApiPlansIdBody>({
 
 const UNIT_MULTIPLIERS = [2592000, 604800, 86400, 3600, 60] as const
 
-function reverseInterval(seconds: number) {
+const reverseInterval = (seconds: number) => {
   for (const m of UNIT_MULTIPLIERS) {
     if (seconds >= m && seconds % m === 0) {
       intervalAmount.value = seconds / m
@@ -124,10 +124,10 @@ function reverseInterval(seconds: number) {
 
 const planId = route.params.id as string
 
-onMounted(async () => {
+const loadPlan = async () => {
   try {
     const res = await getApiPlansId(planId)
-    if (res.status !== 200) {
+    if (res.status < 200 || res.status >= 300) {
       error.value = 'Plan not found.'
       return
     }
@@ -154,7 +154,9 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
-})
+}
+
+onMounted(loadPlan)
 
 const handleSubmit = async () => {
   if (isSubmitting.value) return
@@ -167,7 +169,7 @@ const handleSubmit = async () => {
     if (response.status >= 200 && response.status < 300) {
       router.push({ name: 'plan', params: { slug: formData.value.slug || planId } })
     } else {
-      const body = response.data as { error?: string } | undefined
+      const body = response.data as unknown as { error?: string } | undefined
       alert(body?.error ?? 'Failed to update plan. Please try again.')
     }
   } catch (err) {

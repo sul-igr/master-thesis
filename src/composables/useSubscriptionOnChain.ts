@@ -19,12 +19,12 @@ export interface SubscriptionOnChain {
  * Read subscription state from chain (delegate at accountAddress).
  * Source of truth for active/cancelled; call this instead of relying on DB.
  */
-export async function getSubscriptionOnChain(
+export const getSubscriptionOnChain = async (
   config: Config,
   accountAddress: `0x${string}`,
   chainId: number,
-  subscriptionId: bigint
-): Promise<SubscriptionOnChain | null> {
+  subscriptionId: bigint,
+): Promise<SubscriptionOnChain | null> => {
   const publicClient = getPublicClient(config, { chainId })
   if (!publicClient) return null
   try {

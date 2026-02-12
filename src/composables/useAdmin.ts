@@ -2,7 +2,7 @@ import { ref, watch } from 'vue'
 import { useWallet } from '@/composables/useWallet'
 import { checkIsAdmin } from '@/api/admin'
 
-export function useAdmin() {
+export const useAdmin = () => {
   const { address } = useWallet()
   const isAdmin = ref(false)
 
