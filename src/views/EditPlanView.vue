@@ -132,7 +132,7 @@ const loadPlan = async () => {
       error.value = 'Plan not found.'
       return
     }
-    const plan = res.data as Plan
+    const plan = res.data as unknown as Plan
     if (address.value && plan.creator?.toLowerCase() !== address.value.toLowerCase()) {
       error.value = 'You can only edit your own plans.'
       return
