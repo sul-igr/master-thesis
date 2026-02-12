@@ -12,6 +12,12 @@ export default defineConfig({
       baseUrl: {
         getBaseUrlFromSpecification: true,
       },
+      override: {
+        mutator: {
+          path: './src/api/mutator/customFetch.ts',
+          name: 'customFetch',
+        },
+      },
     },
   },
 })

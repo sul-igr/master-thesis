@@ -1,8 +1,14 @@
 /** EIP-7702 account implementation contract address (used for delegation) */
 export const ACCOUNT_IMPLEMENTATION_ADDRESS = '0x5FbDB2315678afecb367f032d93F642f64180aa3' as const
 
-/** Backend API base URL (used by manually-written API helpers) */
+/** Backend API base URL (used by manually-written API helpers and orval mutator) */
 export const API_BASE_URL = 'https://thesis-be-p2x2.onrender.com' as const
+
+/** API base URL at runtime (env override: VITE_API_BASE_URL for deploy) */
+export function getApiBaseUrl(): string {
+  const env = (import.meta as unknown as { env: Record<string, string | undefined> }).env
+  return env.VITE_API_BASE_URL ?? API_BASE_URL
+}
 
 const SEPOLIA_ID = 11155111
 const HOLESKY_ID = 17000
