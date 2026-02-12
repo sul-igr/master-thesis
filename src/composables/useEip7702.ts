@@ -35,15 +35,8 @@ export const useEIP7702 = () => {
 
   const isDelegated = async (): Promise<boolean> => {
     const code = await getCode()
-    console.log('code', code)
     if (!code) return false
     const delegatedAddress = '0x' + code.slice(8)
-    console.log('delegatedAddress', delegatedAddress)
-    console.log('accountImplementation', accountImplementation)
-    console.log(
-      'isDelegated',
-      delegatedAddress.toLowerCase() === accountImplementation.toLowerCase(),
-    )
     return delegatedAddress.toLowerCase() === accountImplementation.toLowerCase()
   }
 
