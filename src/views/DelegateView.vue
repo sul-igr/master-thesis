@@ -43,8 +43,7 @@ import { useRouter } from 'vue-router'
 import { useAccount } from '@wagmi/vue'
 import BaseButton from '@/components/BaseButton.vue'
 import { useEIP7702 } from '@/composables/useEip7702'
-import { getPostDelegationsUrl } from '@/api/generated/delegations/delegations'
-import { ACCOUNT_IMPLEMENTATION_ADDRESS, getRpcUrl } from '@/constants'
+import { ACCOUNT_IMPLEMENTATION_ADDRESS, getApiBaseUrl, getRpcUrl } from '@/constants'
 import { useWallet } from '@/composables/useWallet'
 
 const router = useRouter()
@@ -55,17 +54,14 @@ const { disconnectWallet } = useWallet()
 const copied = ref(false)
 const checking = ref(false)
 
-const apiBase = computed(() => {
-  const url = getPostDelegationsUrl()
-  return url.replace(/\/delegations\/?$/, '')
-})
+const delegationsUrl = computed(() => `${getApiBaseUrl()}/delegations`)
 
 const delegationCommand = computed(() => {
   const signer = address.value ?? '<YOUR_ADDRESS>'
   const cid = chainId.value ?? 1
   const rpc = getRpcUrl(cid)
   return `cast wallet sign-auth -i --rpc-url ${rpc} ${ACCOUNT_IMPLEMENTATION_ADDRESS} | \\
-  xargs -S 4096 -I{} curl -s -X POST ${apiBase.value}/delegations \\
+  xargs -S 4096 -I{} curl -s -X POST ${delegationsUrl.value} \\
   -H "Content-Type: application/json" \\
   -d "{\\"signedAuthorization\\":\\"{}\\", \\"signerAddress\\":\\"${signer}\\"}"`
 })

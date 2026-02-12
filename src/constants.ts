@@ -1,6 +1,6 @@
 /** EIP-7702 account implementation contract address (used for delegation) */
-export const ACCOUNT_IMPLEMENTATION_ADDRESS = '0x5FbDB2315678afecb367f032d93F642f64180aa3' as const
-
+// export const ACCOUNT_IMPLEMENTATION_ADDRESS = '0x5FbDB2315678afecb367f032d93F642f64180aa3' as const
+export const ACCOUNT_IMPLEMENTATION_ADDRESS = '0xec6f2945A927C9D1E3Ea11e0Bf39E6c1acFBcc76' as const
 /** Backend API base URL (used by manually-written API helpers and orval mutator) */
 export const API_BASE_URL = 'https://thesis-be-p2x2.onrender.com' as const
 
