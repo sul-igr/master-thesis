@@ -12,7 +12,7 @@ const ANVIL_IDS = [31337, 1337]
 const defaultRpcUrls: Record<number, string> = {
   [MAINNET_ID]: 'https://cloudflare-eth.com',
   [SEPOLIA_ID]: 'https://rpc.sepolia.org',
-  [HOLESKY_ID]: 'https://ethereum-holesky-rpc.publicnode.com',
+  [HOLESKY_ID]: 'https://holesky.drpc.org',
   [ANVIL_IDS[0]]: 'http://127.0.0.1:8545',
   [ANVIL_IDS[1]]: 'http://127.0.0.1:8545',
 }
