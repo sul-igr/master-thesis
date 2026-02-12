@@ -22,6 +22,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useSignMessage } from '@wagmi/vue'
 import SubscriptionCard from '@/components/SubscriptionCard.vue'
 import { getApiPlans, deleteApiPlansId } from '@/api/generated/plans/plans'
 import type { Plan } from '@/api/types'
@@ -31,6 +32,7 @@ import { useWallet } from '@/composables/useWallet'
 const router = useRouter()
 const { address } = useWallet()
 const { isAdmin } = useAdmin()
+const { signMessageAsync } = useSignMessage()
 
 const plans = ref<Plan[]>([])
 const loading = ref(true)
@@ -57,8 +59,15 @@ const handleEdit = (plan: Plan) => {
 }
 
 const handleDelete = async (plan: Plan) => {
+  if (!address.value) return
   try {
-    const res = await deleteApiPlansId(plan.id)
+    const signature = await signMessageAsync({ message: `admin:delete-plan:${plan.id}` })
+    const res = await deleteApiPlansId(plan.id, {
+      headers: {
+        'x-admin-signature': signature,
+        'x-admin-address': address.value,
+      },
+    })
     if (res.status >= 200 && res.status < 300) {
       plans.value = plans.value.filter((p) => p.id !== plan.id)
     } else {

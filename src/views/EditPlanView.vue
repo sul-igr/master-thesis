@@ -78,7 +78,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useAccount } from '@wagmi/vue'
+import { useAccount, useSignMessage } from '@wagmi/vue'
 import { getApiPlansId, putApiPlansId } from '@/api/generated/plans/plans'
 import type { PutApiPlansIdBody } from '@/api/generated/models/putApiPlansIdBody'
 import type { Plan } from '@/api/types'
@@ -87,6 +87,7 @@ import BaseButton from '@/components/BaseButton.vue'
 const route = useRoute()
 const router = useRouter()
 const { address } = useAccount()
+const { signMessageAsync } = useSignMessage()
 
 const loading = ref(true)
 const error = ref<string | null>(null)
@@ -159,13 +160,19 @@ const loadPlan = async () => {
 onMounted(loadPlan)
 
 const handleSubmit = async () => {
-  if (isSubmitting.value) return
+  if (isSubmitting.value || !address.value) return
 
   formData.value.intervalSeconds = intervalAmount.value * intervalUnit.value
 
   isSubmitting.value = true
   try {
-    const response = await putApiPlansId(planId, formData.value)
+    const signature = await signMessageAsync({ message: `admin:update-plan:${planId}` })
+    const response = await putApiPlansId(planId, formData.value, {
+      headers: {
+        'x-admin-signature': signature,
+        'x-admin-address': address.value,
+      },
+    })
     if (response.status >= 200 && response.status < 300) {
       router.push({ name: 'plan', params: { slug: formData.value.slug || planId } })
     } else {

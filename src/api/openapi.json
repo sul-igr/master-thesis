@@ -12,17 +12,45 @@
     }
   ],
   "paths": {
+    "/api/admins/check/{address}": {
+      "get": {
+        "summary": "Check if an address is an admin",
+        "tags": [
+          "Admins"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "address",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Admin status"
+          }
+        }
+      }
+    },
     "/delegations": {
       "post": {
         "summary": "Create a delegation for a signer address",
-        "tags": ["Delegations"],
+        "tags": [
+          "Delegations"
+        ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["signerAddress", "signedAuthorization"],
+                "required": [
+                  "signerAddress",
+                  "signedAuthorization"
+                ],
                 "properties": {
                   "signerAddress": {
                     "type": "string",
@@ -62,7 +90,10 @@
                   "properties": {
                     "status": {
                       "type": "string",
-                      "enum": ["already_delegated", "submitted"]
+                      "enum": [
+                        "already_delegated",
+                        "submitted"
+                      ]
                     },
                     "signerAddress": {
                       "type": "string"
@@ -94,7 +125,9 @@
       },
       "get": {
         "summary": "Health check for delegations endpoint",
-        "tags": ["Delegations"],
+        "tags": [
+          "Delegations"
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -117,7 +150,9 @@
     "/api/plans": {
       "get": {
         "summary": "Get all active plans",
-        "tags": ["Plans"],
+        "tags": [
+          "Plans"
+        ],
         "responses": {
           "200": {
             "description": "List of plans"
@@ -126,7 +161,30 @@
       },
       "post": {
         "summary": "Create a new plan",
-        "tags": ["Plans"],
+        "tags": [
+          "Plans"
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-admin-signature",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "EIP-191 signature of \"admin:create-plan:{slug}\""
+          },
+          {
+            "in": "header",
+            "name": "x-admin-address",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^0x[a-fA-F0-9]{40}$"
+            },
+            "description": "Admin wallet address"
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -146,31 +204,39 @@
                 ],
                 "properties": {
                   "slug": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^[a-z0-9-]+$"
                   },
                   "creator": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Set automatically from verified signer"
                   },
                   "receiver": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^0x[a-fA-F0-9]{40}$"
                   },
                   "chainId": {
-                    "type": "number"
+                    "type": "integer"
                   },
                   "token": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^0x[a-fA-F0-9]{40}$"
                   },
                   "tokenSymbol": {
                     "type": "string"
                   },
                   "tokenDecimals": {
-                    "type": "number"
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18
                   },
                   "price": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^\\d+$",
+                    "description": "Price in base token units (uint256 string)"
                   },
                   "intervalSeconds": {
-                    "type": "number"
+                    "type": "integer"
                   },
                   "name": {
                     "type": "string"
@@ -179,7 +245,8 @@
                     "type": "string"
                   },
                   "imageUrl": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uri"
                   }
                 }
               }
@@ -187,11 +254,17 @@
           }
         },
         "responses": {
-          "200": {
+          "201": {
             "description": "Plan created successfully"
           },
           "400": {
             "description": "Invalid request body"
+          },
+          "401": {
+            "description": "Missing or invalid signature"
+          },
+          "403": {
+            "description": "Not an admin"
           },
           "500": {
             "description": "Server error"
@@ -202,7 +275,9 @@
     "/api/plans/{id}": {
       "get": {
         "summary": "Get plan by ID (UUID)",
-        "tags": ["Plans"],
+        "tags": [
+          "Plans"
+        ],
         "parameters": [
           {
             "in": "path",
@@ -228,7 +303,9 @@
       },
       "put": {
         "summary": "Update a plan",
-        "tags": ["Plans"],
+        "tags": [
+          "Plans"
+        ],
         "parameters": [
           {
             "in": "path",
@@ -238,14 +315,97 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "in": "header",
+            "name": "x-admin-signature",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "EIP-191 signature of \"admin:update-plan:{id}\""
+          },
+          {
+            "in": "header",
+            "name": "x-admin-address",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^0x[a-fA-F0-9]{40}$"
+            },
+            "description": "Admin wallet address"
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "slug": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9-]+$"
+                  },
+                  "creator": {
+                    "type": "string"
+                  },
+                  "receiver": {
+                    "type": "string",
+                    "pattern": "^0x[a-fA-F0-9]{40}$"
+                  },
+                  "chainId": {
+                    "type": "integer"
+                  },
+                  "token": {
+                    "type": "string",
+                    "pattern": "^0x[a-fA-F0-9]{40}$"
+                  },
+                  "tokenSymbol": {
+                    "type": "string"
+                  },
+                  "tokenDecimals": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18
+                  },
+                  "price": {
+                    "type": "string",
+                    "pattern": "^\\d+$"
+                  },
+                  "intervalSeconds": {
+                    "type": "integer"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "imageUrl": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "active": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Plan updated successfully"
           },
           "400": {
             "description": "Invalid request body"
+          },
+          "401": {
+            "description": "Missing or invalid signature"
+          },
+          "403": {
+            "description": "Not an admin"
           },
           "404": {
             "description": "Plan not found"
@@ -257,7 +417,9 @@
       },
       "delete": {
         "summary": "Delete a plan",
-        "tags": ["Plans"],
+        "tags": [
+          "Plans"
+        ],
         "parameters": [
           {
             "in": "path",
@@ -267,11 +429,36 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "in": "header",
+            "name": "x-admin-signature",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "EIP-191 signature of \"admin:delete-plan:{id}\""
+          },
+          {
+            "in": "header",
+            "name": "x-admin-address",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^0x[a-fA-F0-9]{40}$"
+            },
+            "description": "Admin wallet address"
           }
         ],
         "responses": {
           "200": {
             "description": "Plan deleted successfully"
+          },
+          "401": {
+            "description": "Missing or invalid signature"
+          },
+          "403": {
+            "description": "Not an admin"
           },
           "404": {
             "description": "Plan not found"
@@ -282,17 +469,49 @@
         }
       }
     },
+    "/api/plans/slug/{slug}": {
+      "get": {
+        "summary": "Get plan by slug",
+        "tags": [
+          "Plans"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9-]+$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Plan found"
+          },
+          "404": {
+            "description": "Plan not found"
+          }
+        }
+      }
+    },
     "/api/subscriptions": {
       "post": {
         "summary": "Create a new subscription",
-        "tags": ["Subscriptions"],
+        "tags": [
+          "Subscriptions"
+        ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["userId", "planId"],
+                "required": [
+                  "userId",
+                  "planId"
+                ],
                 "properties": {
                   "userId": {
                     "type": "string",
@@ -301,6 +520,10 @@
                   "planId": {
                     "type": "string",
                     "format": "uuid"
+                  },
+                  "onChainSubscriptionId": {
+                    "type": "integer",
+                    "description": "Optional; set after user creates subscription on-chain"
                   }
                 }
               }
@@ -308,8 +531,8 @@
           }
         },
         "responses": {
-          "200": {
-            "description": "Subscription created successfully"
+          "201": {
+            "description": "Subscription created"
           },
           "400": {
             "description": "Invalid request body"
@@ -323,7 +546,9 @@
     "/api/subscriptions/user/{userId}": {
       "get": {
         "summary": "Get subscriptions for a user",
-        "tags": ["Subscriptions"],
+        "tags": [
+          "Subscriptions"
+        ],
         "parameters": [
           {
             "in": "path",
@@ -344,10 +569,12 @@
         }
       }
     },
-    "/api/subscriptions/{id}/cancel": {
-      "post": {
-        "summary": "Cancel a subscription",
-        "tags": ["Subscriptions"],
+    "/api/subscriptions/{id}": {
+      "get": {
+        "summary": "Get subscription by ID",
+        "tags": [
+          "Subscriptions"
+        ],
         "parameters": [
           {
             "in": "path",
@@ -360,10 +587,327 @@
         ],
         "responses": {
           "200": {
-            "description": "Subscription cancelled successfully"
+            "description": "Subscription found"
+          },
+          "400": {
+            "description": "Invalid id"
           },
           "404": {
             "description": "Subscription not found"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update subscription (set on-chain ID)",
+        "tags": [
+          "Subscriptions"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId",
+                  "onChainSubscriptionId"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string",
+                    "pattern": "^0x[a-fA-F0-9]{40}$",
+                    "description": "Wallet address for ownership verification"
+                  },
+                  "onChainSubscriptionId": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Subscription updated"
+          },
+          "400": {
+            "description": "Invalid request body"
+          },
+          "403": {
+            "description": "Not your subscription"
+          },
+          "404": {
+            "description": "Subscription not found"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/api/subscriptions/{id}/retry": {
+      "post": {
+        "summary": "Retry a failed subscription payment",
+        "tags": [
+          "Subscriptions"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string",
+                    "pattern": "^0x[a-fA-F0-9]{40}$",
+                    "description": "Wallet address for ownership verification"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Subscription with retry result"
+          },
+          "400": {
+            "description": "Invalid id or request body"
+          },
+          "403": {
+            "description": "Not your subscription"
+          },
+          "404": {
+            "description": "Subscription not found"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/api/subscriptions/{id}/cancel": {
+      "post": {
+        "summary": "Cancel a subscription",
+        "tags": [
+          "Subscriptions"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string",
+                    "pattern": "^0x[a-fA-F0-9]{40}$",
+                    "description": "Wallet address for ownership verification"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid id or request body"
+          },
+          "403": {
+            "description": "Not your subscription"
+          },
+          "404": {
+            "description": "Subscription not found"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/api/subscriptions/relay-create": {
+      "post": {
+        "summary": "Gasless subscription create via relayer",
+        "tags": [
+          "Subscriptions"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId",
+                  "planId",
+                  "token",
+                  "receiver",
+                  "amount",
+                  "interval",
+                  "startTime",
+                  "endTime",
+                  "maxExecutions",
+                  "nonce",
+                  "signature"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string",
+                    "pattern": "^0x[a-fA-F0-9]{40}$"
+                  },
+                  "planId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "token": {
+                    "type": "string",
+                    "pattern": "^0x[a-fA-F0-9]{40}$"
+                  },
+                  "receiver": {
+                    "type": "string",
+                    "pattern": "^0x[a-fA-F0-9]{40}$"
+                  },
+                  "amount": {
+                    "type": "string",
+                    "pattern": "^\\\\d+$"
+                  },
+                  "interval": {
+                    "type": "string",
+                    "pattern": "^\\\\d+$"
+                  },
+                  "startTime": {
+                    "type": "string",
+                    "pattern": "^\\\\d+$"
+                  },
+                  "endTime": {
+                    "type": "string",
+                    "pattern": "^\\\\d+$"
+                  },
+                  "maxExecutions": {
+                    "type": "string",
+                    "pattern": "^\\\\d+$"
+                  },
+                  "nonce": {
+                    "type": "string",
+                    "pattern": "^\\\\d+$"
+                  },
+                  "signature": {
+                    "type": "string",
+                    "pattern": "^0x[a-fA-F0-9]+$"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Subscription created; returns subscription and txHash"
+          },
+          "400": {
+            "description": "Invalid request body"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/api/subscriptions/relay-cancel": {
+      "post": {
+        "summary": "Gasless subscription cancel via relayer",
+        "tags": [
+          "Subscriptions"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId",
+                  "backendSubId",
+                  "onChainSubId",
+                  "nonce",
+                  "signature"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string",
+                    "pattern": "^0x[a-fA-F0-9]{40}$"
+                  },
+                  "backendSubId": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "onChainSubId": {
+                    "type": "string",
+                    "pattern": "^\\\\d+$"
+                  },
+                  "nonce": {
+                    "type": "string",
+                    "pattern": "^\\\\d+$"
+                  },
+                  "signature": {
+                    "type": "string",
+                    "pattern": "^0x[a-fA-F0-9]+$"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success; returns success and txHash"
+          },
+          "400": {
+            "description": "Invalid request body"
           },
           "500": {
             "description": "Server error"

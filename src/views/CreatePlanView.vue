@@ -83,13 +83,14 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAccount } from '@wagmi/vue'
+import { useAccount, useSignMessage } from '@wagmi/vue'
 import { postApiPlans } from '@/api/generated/plans/plans'
 import type { PostApiPlansBody } from '@/api/generated/models/postApiPlansBody'
 import BaseButton from '@/components/BaseButton.vue'
 
 const router = useRouter()
 const { address, chainId } = useAccount()
+const { signMessageAsync } = useSignMessage()
 
 const supportedChains = [
   { id: 31337, name: 'Anvil (localhost)' },
@@ -119,15 +120,20 @@ const formData = ref<PostApiPlansBody>({
 })
 
 const handleSubmit = async () => {
-  if (isSubmitting.value) return
+  if (isSubmitting.value || !address.value) return
 
-  // Ensure creator is always set from connected wallet
-  formData.value.creator = address.value ?? ''
+  formData.value.creator = address.value
   formData.value.intervalSeconds = intervalAmount.value * intervalUnit.value
 
   isSubmitting.value = true
   try {
-    const response = await postApiPlans(formData.value)
+    const signature = await signMessageAsync({ message: `admin:create-plan:${formData.value.slug}` })
+    const response = await postApiPlans(formData.value, {
+      headers: {
+        'x-admin-signature': signature,
+        'x-admin-address': address.value,
+      },
+    })
 
     if (response.status >= 200 && response.status < 300) {
       router.push({ name: 'home' })

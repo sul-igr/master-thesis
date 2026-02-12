@@ -175,9 +175,10 @@ const handleUnsubscribe = async (sub: EnrichedSubscription) => {
 }
 
 const handleRetry = async (sub: EnrichedSubscription) => {
+  if (!address.value) return
   retryingIds.add(sub.id)
   try {
-    const res = await postApiSubscriptionsIdRetry(sub.id)
+    const res = await postApiSubscriptionsIdRetry(sub.id, { userId: address.value })
     if (res.status >= 200 && res.status < 300) {
       await loadSubscriptions()
     } else {
