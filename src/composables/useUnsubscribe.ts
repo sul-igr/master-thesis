@@ -1,42 +1,42 @@
-import { ref } from 'vue'
+import { computed } from 'vue'
+import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { readContract } from '@wagmi/core'
 import { useAccount, useConfig, useSignTypedData } from '@wagmi/vue'
 import { postApiSubscriptionsRelayCancel } from '@/api/generated/subscriptions/subscriptions'
 import { SUBSCRIPTION_DELEGATE_ABI } from '@/abis/subscriptionDelegate'
+import { queryKeys } from '@/api/query-keys'
 import type { ApiErrorBody } from '@/api/types'
 
 export const useUnsubscribe = () => {
   const config = useConfig()
+  const queryClient = useQueryClient()
   const { address, chainId } = useAccount()
   const { signTypedDataAsync } = useSignTypedData()
-  const loading = ref(false)
-  const error = ref<string | null>(null)
 
-  const unsubscribe = async (
-    onChainSubId: number,
-    backendSubId: number,
-  ): Promise<{ success: boolean; error?: string }> => {
-    const userId = address.value
-    if (!userId) {
-      return { success: false, error: 'Wallet not connected' }
-    }
+  const mutation = useMutation({
+    mutationFn: async ({
+      onChainSubId,
+      backendSubId,
+    }: {
+      onChainSubId: number
+      backendSubId: number
+    }): Promise<{ success: boolean; error?: string }> => {
+      const userId = address.value
+      if (!userId) {
+        return { success: false, error: 'Wallet not connected' }
+      }
 
-    const cid = chainId.value
-    if (!cid) {
-      return { success: false, error: 'Wallet chain not set. Connect and try again.' }
-    }
+      const cid = chainId.value
+      if (!cid) {
+        return { success: false, error: 'Wallet chain not set. Connect and try again.' }
+      }
 
-    loading.value = true
-    error.value = null
-    try {
-      // Read the current signature nonce from the user's delegated EOA
       const nonce = await readContract(config, {
         address: userId,
         abi: SUBSCRIPTION_DELEGATE_ABI,
         functionName: 'signatureNonce',
       })
 
-      // Sign EIP-712 typed data (no gas required)
       const signature = await signTypedDataAsync({
         domain: {
           name: 'SubscriptionDelegate',
@@ -57,7 +57,6 @@ export const useUnsubscribe = () => {
         },
       })
 
-      // Post to backend relay endpoint — relayer pays gas
       const res = await postApiSubscriptionsRelayCancel({
         userId,
         backendSubId,
@@ -72,14 +71,31 @@ export const useUnsubscribe = () => {
       const body = res.data as unknown as ApiErrorBody | undefined
       const msg = body?.error ?? `Backend failed with status ${res.status}`
       return { success: false, error: msg }
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.subscriptions.all })
+      }
+    },
+  })
+
+  const unsubscribe = async (
+    onChainSubId: number,
+    backendSubId: number,
+  ): Promise<{ success: boolean; error?: string }> => {
+    try {
+      return await mutation.mutateAsync({ onChainSubId, backendSubId })
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Unsubscribe failed'
-      error.value = msg
       return { success: false, error: msg }
-    } finally {
-      loading.value = false
     }
   }
 
-  return { unsubscribe, loading, error }
+  return {
+    unsubscribe,
+    loading: mutation.isPending,
+    error: computed(() =>
+      mutation.error != null ? String(mutation.error) : null,
+    ),
+  }
 }

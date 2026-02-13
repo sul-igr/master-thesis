@@ -58,29 +58,40 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
-import { useAccount, useConfig } from '@wagmi/vue'
-import { getApiSubscriptionsUserUserId, postApiSubscriptionsIdRetry } from '@/api/generated/subscriptions/subscriptions'
-import { getSubscriptionOnChain } from '@/composables/useSubscriptionOnChain'
+import { computed, reactive } from 'vue'
+import { useMutation, useQueryClient } from '@tanstack/vue-query'
+import { postApiSubscriptionsIdRetry } from '@/api/generated/subscriptions/subscriptions'
+import { queryKeys } from '@/api/query-keys'
+import {
+  useSubscriptionsQuery,
+  type EnrichedSubscription,
+} from '@/composables/useSubscriptionsQuery'
 import { useUnsubscribe } from '@/composables/useUnsubscribe'
 import { formatPrice } from '@/utils/format'
-import type { Subscription } from '@/api/types'
+import { useAccount } from '@wagmi/vue'
 
-interface EnrichedSubscription extends Subscription {
-  onChainActive: boolean
-  nextExecutionTime: number | null
-  executionCount: number | null
-  isOverdue: boolean
-}
-
-const config = useConfig()
-const { address, chainId } = useAccount()
+const queryClient = useQueryClient()
+const { address } = useAccount()
 const { unsubscribe, loading: unsubLoading } = useUnsubscribe()
 
-const loading = ref(true)
+const { data: subscriptionsList, isLoading: loading, error: queryError } = useSubscriptionsQuery()
+const subscriptions = computed(() => subscriptionsList.value ?? [])
+const error = computed(() => {
+  if (!address.value) return 'Wallet not connected'
+  return queryError.value ? (queryError.value as Error).message : null
+})
+
 const retryingIds = reactive(new Set<number>())
-const error = ref<string | null>(null)
-const subscriptions = ref<EnrichedSubscription[]>([])
+const retryMutation = useMutation({
+  mutationFn: async ({ subId, userId }: { subId: number; userId: string }) => {
+    return postApiSubscriptionsIdRetry(subId, { userId })
+  },
+  onSuccess: (res) => {
+    if (res.status >= 200 && res.status < 300) {
+      queryClient.invalidateQueries({ queryKey: queryKeys.subscriptions.all })
+    }
+  },
+})
 
 // --- Helpers ---
 
@@ -102,66 +113,6 @@ const statusBadgeLabel = (sub: EnrichedSubscription): string => {
   return sub.onChainActive ? 'Active' : 'Cancelled'
 }
 
-const enrichSubscription = async (
-  sub: Subscription,
-  userId: `0x${string}`,
-  cid: number | undefined,
-): Promise<EnrichedSubscription> => {
-  let onChainActive = sub.status === 'active' && !sub.cancelled
-  let nextExecutionTime: number | null = null
-  let executionCount: number | null = null
-
-  if (sub.onChainSubscriptionId != null && cid) {
-    const onChain = await getSubscriptionOnChain(
-      config,
-      userId,
-      cid,
-      BigInt(sub.onChainSubscriptionId),
-    )
-    if (onChain) {
-      onChainActive = onChain.active
-      nextExecutionTime = Number(onChain.nextExecutionTime)
-      executionCount = onChain.executionCount
-    }
-  }
-
-  const isOverdue = onChainActive
-    && nextExecutionTime != null
-    && nextExecutionTime <= Date.now() / 1000
-
-  return { ...sub, onChainActive, nextExecutionTime, executionCount, isOverdue }
-}
-
-// --- Data loading ---
-
-const loadSubscriptions = async () => {
-  const userId = address.value
-  if (!userId) {
-    error.value = 'Wallet not connected'
-    loading.value = false
-    return
-  }
-
-  try {
-    const res = await getApiSubscriptionsUserUserId(userId)
-    const data = res.data as Subscription[] | undefined
-    if (!Array.isArray(data)) {
-      subscriptions.value = []
-      loading.value = false
-      return
-    }
-
-    const cid = chainId.value
-    subscriptions.value = await Promise.all(
-      data.map((sub) => enrichSubscription(sub, userId as `0x${string}`, cid)),
-    )
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Failed to load subscriptions'
-  } finally {
-    loading.value = false
-  }
-}
-
 // --- Actions ---
 
 const handleUnsubscribe = async (sub: EnrichedSubscription) => {
@@ -175,23 +126,17 @@ const handleUnsubscribe = async (sub: EnrichedSubscription) => {
 }
 
 const handleRetry = async (sub: EnrichedSubscription) => {
-  if (!address.value) return
+  const userId = address.value
+  if (!userId) return
   retryingIds.add(sub.id)
   try {
-    const res = await postApiSubscriptionsIdRetry(sub.id, { userId: address.value })
-    if (res.status >= 200 && res.status < 300) {
-      await loadSubscriptions()
-    } else {
-      console.error('Retry failed:', res.data)
-    }
+    await retryMutation.mutateAsync({ subId: sub.id, userId })
   } catch (e) {
     console.error('Retry failed:', e)
   } finally {
     retryingIds.delete(sub.id)
   }
 }
-
-onMounted(loadSubscriptions)
 </script>
 
 <style scoped>

@@ -20,13 +20,14 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSignMessage } from '@wagmi/vue'
 import SubscriptionCard from '@/components/SubscriptionCard.vue'
-import { getApiPlans, deleteApiPlansId } from '@/api/generated/plans/plans'
 import type { Plan } from '@/api/types'
 import { useAdmin } from '@/composables/useAdmin'
+import { useDeletePlanMutation } from '@/composables/usePlanMutations'
+import { usePlansQuery } from '@/composables/usePlansQuery'
 import { useWallet } from '@/composables/useWallet'
 
 const router = useRouter()
@@ -34,22 +35,9 @@ const { address } = useWallet()
 const { isAdmin } = useAdmin()
 const { signMessageAsync } = useSignMessage()
 
-const plans = ref<Plan[]>([])
-const loading = ref(true)
-
-const loadPlans = async () => {
-  try {
-    const plansRes = await getApiPlans()
-    const data = plansRes.data as Plan[] | undefined
-    plans.value = Array.isArray(data) ? data : []
-  } catch (e) {
-    console.error('Failed to load plans:', e)
-  } finally {
-    loading.value = false
-  }
-}
-
-onMounted(loadPlans)
+const { data: plansList, isLoading: loading } = usePlansQuery()
+const plans = computed(() => plansList.value ?? [])
+const deletePlan = useDeletePlanMutation()
 
 const isOwnPlan = (plan: Plan): boolean =>
   !!address.value && plan.creator?.toLowerCase() === address.value.toLowerCase()
@@ -62,14 +50,13 @@ const handleDelete = async (plan: Plan) => {
   if (!address.value) return
   try {
     const signature = await signMessageAsync({ message: `admin:delete-plan:${plan.id}` })
-    const res = await deleteApiPlansId(plan.id, {
-      headers: {
-        'x-admin-signature': signature,
-        'x-admin-address': address.value,
-      },
+    const res = await deletePlan.mutateAsync({
+      planId: plan.id,
+      signature,
+      address: address.value,
     })
     if (res.status >= 200 && res.status < 300) {
-      plans.value = plans.value.filter((p) => p.id !== plan.id)
+      // List auto-updates via invalidation
     } else {
       console.error('Delete failed:', res.status)
     }

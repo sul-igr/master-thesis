@@ -76,22 +76,33 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAccount, useSignMessage } from '@wagmi/vue'
-import { getApiPlansId, putApiPlansId } from '@/api/generated/plans/plans'
 import type { PutApiPlansIdBody } from '@/api/generated/models/putApiPlansIdBody'
 import type { Plan } from '@/api/types'
 import BaseButton from '@/components/BaseButton.vue'
+import { usePlanByIdQuery } from '@/composables/usePlansQuery'
+import { useUpdatePlanMutation } from '@/composables/usePlanMutations'
 
 const route = useRoute()
 const router = useRouter()
 const { address } = useAccount()
 const { signMessageAsync } = useSignMessage()
 
-const loading = ref(true)
-const error = ref<string | null>(null)
-const isSubmitting = ref(false)
+const planId = route.params.id as string
+const { data: planData, isLoading: loading } = usePlanByIdQuery(planId)
+const updatePlan = useUpdatePlanMutation()
+
+const error = computed(() => {
+  if (!loading.value && planData.value == null) return 'Plan not found.'
+  const p = planData.value
+  if (p && address.value && p.creator?.toLowerCase() !== address.value.toLowerCase()) {
+    return 'You can only edit your own plans.'
+  }
+  return null
+})
+
 const intervalAmount = ref(1)
 const intervalUnit = ref(2592000)
 
@@ -110,7 +121,7 @@ const formData = ref<PutApiPlansIdBody>({
 
 const UNIT_MULTIPLIERS = [2592000, 604800, 86400, 3600, 60] as const
 
-const reverseInterval = (seconds: number) => {
+function reverseInterval(seconds: number) {
   for (const m of UNIT_MULTIPLIERS) {
     if (seconds >= m && seconds % m === 0) {
       intervalAmount.value = seconds / m
@@ -118,25 +129,14 @@ const reverseInterval = (seconds: number) => {
       return
     }
   }
-  // Fallback: show raw seconds as minutes
   intervalAmount.value = seconds
   intervalUnit.value = 1
 }
 
-const planId = route.params.id as string
-
-const loadPlan = async () => {
-  try {
-    const res = await getApiPlansId(planId)
-    if (res.status < 200 || res.status >= 300) {
-      error.value = 'Plan not found.'
-      return
-    }
-    const plan = res.data as unknown as Plan
-    if (address.value && plan.creator?.toLowerCase() !== address.value.toLowerCase()) {
-      error.value = 'You can only edit your own plans.'
-      return
-    }
+watch(
+  planData,
+  (plan: Plan | null | undefined) => {
+    if (!plan || error.value) return
     formData.value = {
       name: plan.name,
       slug: plan.slug ?? '',
@@ -150,28 +150,24 @@ const loadPlan = async () => {
       imageUrl: plan.imageUrl ?? '',
     }
     reverseInterval(plan.intervalSeconds ?? 0)
-  } catch {
-    error.value = 'Failed to load plan.'
-  } finally {
-    loading.value = false
-  }
-}
+  },
+  { immediate: true },
+)
 
-onMounted(loadPlan)
+const isSubmitting = updatePlan.isPending
 
 const handleSubmit = async () => {
   if (isSubmitting.value || !address.value) return
 
   formData.value.intervalSeconds = intervalAmount.value * intervalUnit.value
 
-  isSubmitting.value = true
   try {
     const signature = await signMessageAsync({ message: `admin:update-plan:${planId}` })
-    const response = await putApiPlansId(planId, formData.value, {
-      headers: {
-        'x-admin-signature': signature,
-        'x-admin-address': address.value,
-      },
+    const response = await updatePlan.mutateAsync({
+      planId,
+      body: formData.value,
+      signature,
+      address: address.value,
     })
     if (response.status >= 200 && response.status < 300) {
       router.push({ name: 'plan', params: { slug: formData.value.slug || planId } })
@@ -182,8 +178,6 @@ const handleSubmit = async () => {
   } catch (err) {
     console.error('Error updating plan:', err)
     alert('An error occurred while updating the plan.')
-  } finally {
-    isSubmitting.value = false
   }
 }
 </script>

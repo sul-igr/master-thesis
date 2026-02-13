@@ -72,8 +72,8 @@
       </div>
 
       <div class="form-actions">
-        <BaseButton type="submit" :disabled="isSubmitting">
-          {{ isSubmitting ? 'Creating...' : 'Create Plan' }}
+        <BaseButton type="submit" :disabled="createPlan.isPending.value">
+          {{ createPlan.isPending.value ? 'Creating...' : 'Create Plan' }}
         </BaseButton>
       </div>
     </form>
@@ -84,13 +84,14 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAccount, useSignMessage } from '@wagmi/vue'
-import { postApiPlans } from '@/api/generated/plans/plans'
 import type { PostApiPlansBody } from '@/api/generated/models/postApiPlansBody'
 import BaseButton from '@/components/BaseButton.vue'
+import { useCreatePlanMutation } from '@/composables/usePlanMutations'
 
 const router = useRouter()
 const { address, chainId } = useAccount()
 const { signMessageAsync } = useSignMessage()
+const createPlan = useCreatePlanMutation()
 
 const supportedChains = [
   { id: 31337, name: 'Anvil (localhost)' },
@@ -100,7 +101,6 @@ const supportedChains = [
 
 const defaultChainId = supportedChains.find((c) => c.id === chainId.value)?.id ?? 31337
 
-const isSubmitting = ref(false)
 const intervalAmount = ref(1)
 const intervalUnit = ref(2592000)
 
@@ -120,19 +120,17 @@ const formData = ref<PostApiPlansBody>({
 })
 
 const handleSubmit = async () => {
-  if (isSubmitting.value || !address.value) return
+  if (createPlan.isPending.value || !address.value) return
 
   formData.value.creator = address.value
   formData.value.intervalSeconds = intervalAmount.value * intervalUnit.value
 
-  isSubmitting.value = true
   try {
     const signature = await signMessageAsync({ message: `admin:create-plan:${formData.value.slug}` })
-    const response = await postApiPlans(formData.value, {
-      headers: {
-        'x-admin-signature': signature,
-        'x-admin-address': address.value,
-      },
+    const response = await createPlan.mutateAsync({
+      body: formData.value,
+      signature,
+      address: address.value,
     })
 
     if (response.status >= 200 && response.status < 300) {
@@ -144,8 +142,6 @@ const handleSubmit = async () => {
   } catch (error) {
     console.error('Error creating plan:', error)
     alert('An error occurred while creating the plan.')
-  } finally {
-    isSubmitting.value = false
   }
 }
 </script>

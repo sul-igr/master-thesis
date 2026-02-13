@@ -67,15 +67,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { ArrowLeft, Pencil } from 'lucide-vue-next'
 import { readContract } from '@wagmi/core'
 import { useConfig } from '@wagmi/vue'
 import BaseButton from '@/components/BaseButton.vue'
-import { getApiPlans } from '@/api/generated/plans/plans'
 import type { Plan } from '@/api/types'
 import { useSubscribe } from '@/composables/useSubscribe'
+import { usePlansQuery } from '@/composables/usePlansQuery'
 import { useWallet } from '@/composables/useWallet'
 import { formatPrice, formatInterval } from '@/utils/format'
 
@@ -85,13 +85,18 @@ const DEFAULT_IMAGE =
 const route = useRoute()
 const router = useRouter()
 const config = useConfig()
-const plan = ref<Plan | null>(null)
-const loading = ref(true)
 const tokenBalance = ref<bigint | null>(null)
-const { address, isConnected } = useWallet()
+const { address } = useWallet()
 const { subscribe, loading: subscribing } = useSubscribe()
 
 const slug = computed(() => route.params.slug as string)
+const { data: plansList, isLoading: loading } = usePlansQuery()
+const plan = computed(
+  () =>
+    (plansList.value ?? []).find(
+      (p: Plan) => p.slug === slug.value || p.id === slug.value,
+    ) ?? null,
+)
 
 const displayPrice = computed(() => {
   if (!plan.value) return ''
@@ -120,25 +125,10 @@ const chainName = computed(() => {
   return map[plan.value.chainId ?? 0] ?? `Chain ${plan.value.chainId}`
 })
 
-const loadPlan = async () => {
-  try {
-    const listRes = await getApiPlans()
-    const list = (listRes.data as Plan[] | undefined) ?? []
-    plan.value = Array.isArray(list)
-      ? (list.find((p: Plan) => p.slug === slug.value || p.id === slug.value) ?? null)
-      : null
-  } catch {
-    plan.value = null
-  } finally {
-    loading.value = false
-  }
-}
-
-onMounted(loadPlan)
-
 const fetchTokenBalance = async () => {
   const user = address.value
-  const token = plan.value?.token as `0x${string}` | undefined
+  const p = plan.value
+  const token = p?.token as `0x${string}` | undefined
   if (!user || !token) {
     tokenBalance.value = null
     return
