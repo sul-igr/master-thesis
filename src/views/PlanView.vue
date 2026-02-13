@@ -10,11 +10,7 @@
     <template v-else-if="plan">
       <div class="plan-card">
         <div class="plan-hero">
-          <img
-            :src="plan.imageUrl ?? DEFAULT_IMAGE"
-            :alt="plan.name"
-            class="hero-image"
-          />
+          <img :src="plan.imageUrl ?? DEFAULT_IMAGE" :alt="plan.name" class="hero-image" />
           <div class="hero-overlay" />
         </div>
 
@@ -57,11 +53,7 @@
             </div>
           </div>
 
-          <BaseButton
-            class="subscribe-cta"
-            @click="handleSubscribe"
-            :disabled="subscribeDisabled"
-          >
+          <BaseButton class="subscribe-cta" @click="handleSubscribe" :disabled="subscribeDisabled">
             {{ subscribeButtonText }}
           </BaseButton>
         </div>
@@ -75,9 +67,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { ArrowLeft, Pencil } from 'lucide-vue-next'
+import { readContract } from '@wagmi/core'
+import { useConfig } from '@wagmi/vue'
 import BaseButton from '@/components/BaseButton.vue'
 import { getApiPlans } from '@/api/generated/plans/plans'
 import type { Plan } from '@/api/types'
@@ -90,8 +84,10 @@ const DEFAULT_IMAGE =
 
 const route = useRoute()
 const router = useRouter()
+const config = useConfig()
 const plan = ref<Plan | null>(null)
 const loading = ref(true)
+const tokenBalance = ref<bigint | null>(null)
 const { address, isConnected } = useWallet()
 const { subscribe, loading: subscribing } = useSubscribe()
 
@@ -129,7 +125,7 @@ const loadPlan = async () => {
     const listRes = await getApiPlans()
     const list = (listRes.data as Plan[] | undefined) ?? []
     plan.value = Array.isArray(list)
-      ? list.find((p: Plan) => p.slug === slug.value || p.id === slug.value) ?? null
+      ? (list.find((p: Plan) => p.slug === slug.value || p.id === slug.value) ?? null)
       : null
   } catch {
     plan.value = null
@@ -140,12 +136,51 @@ const loadPlan = async () => {
 
 onMounted(loadPlan)
 
+const fetchTokenBalance = async () => {
+  const user = address.value
+  const token = plan.value?.token as `0x${string}` | undefined
+  if (!user || !token) {
+    tokenBalance.value = null
+    return
+  }
+  try {
+    const bal = await readContract(config, {
+      address: token,
+      abi: [
+        {
+          type: 'function',
+          name: 'balanceOf',
+          stateMutability: 'view',
+          inputs: [{ name: 'account', type: 'address' }],
+          outputs: [{ name: '', type: 'uint256' }],
+        },
+      ] as const,
+      functionName: 'balanceOf',
+      args: [user],
+    })
+    tokenBalance.value = bal as bigint
+  } catch {
+    tokenBalance.value = null
+  }
+}
+
+watch([address, plan], fetchTokenBalance, { immediate: true })
+
+const insufficientBalance = computed(
+  () =>
+    tokenBalance.value != null &&
+    plan.value != null &&
+    tokenBalance.value < BigInt(plan.value.price),
+)
+
 const subscribeButtonText = computed(() => {
   if (subscribing.value) return 'Subscribing...'
-  if (!isConnected.value) return 'Connect wallet to subscribe'
+  if (insufficientBalance.value) return `Insufficient ${plan.value?.tokenSymbol ?? 'token'} balance`
   return 'Subscribe'
 })
-const subscribeDisabled = computed(() => !plan.value || !address.value || subscribing.value)
+const subscribeDisabled = computed(
+  () => !plan.value || !address.value || subscribing.value || insufficientBalance.value,
+)
 
 const handleSubscribe = async () => {
   if (!address.value || !plan.value) return
