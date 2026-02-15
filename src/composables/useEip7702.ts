@@ -19,7 +19,6 @@ export const checkIsDelegated = async (
 
 export const useEIP7702 = () => {
   const config = useConfig()
-  const accountImplementation = ACCOUNT_IMPLEMENTATION_ADDRESS as `0x${string}`
   const { address, chainId } = useAccount()
 
   const getCode = async (): Promise<`0x${string}` | undefined> => {
@@ -34,10 +33,8 @@ export const useEIP7702 = () => {
   }
 
   const isDelegated = async (): Promise<boolean> => {
-    const code = await getCode()
-    if (!code) return false
-    const delegatedAddress = '0x' + code.slice(8)
-    return delegatedAddress.toLowerCase() === accountImplementation.toLowerCase()
+    if (!address.value || !chainId.value) return false
+    return checkIsDelegated(config, address.value, chainId.value)
   }
 
   return {
